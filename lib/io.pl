@@ -8,11 +8,12 @@ input(Day, Lambda) :-
     forall(member(Line, Split), call(Lambda, Line)).
     
 % Pred is the name of the predicate to list.
+% Arity is the arity of that predicate
 % i.e. for day01, input_as_list with Pred=num
 % binds List to the list of input numbers
-input_as_list(Day, Lambda, Pred, List) :-
+input_as_list(Day, Lambda, Pred/Arity, List) :-
     input(Day, Lambda),
-    findall(X, call(Pred, X), List).
+    findall(X, (functor(X, Pred, Arity), call(X)), List).
 
 write_part1(Answer) :-
     format("Part 1: ~w~n", [Answer]).
