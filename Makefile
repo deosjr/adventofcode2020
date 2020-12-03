@@ -1,4 +1,4 @@
-.PHONY: all, go1, pl1, go2, pl2, go3
+.PHONY: all, go1, pl1, go2, pl2, go3, pl3
 all:
 	@for n in $$(seq -f "%02g" 1 3); do \
 		echo "$$n\n--------"; \
@@ -21,3 +21,5 @@ pl2:
 
 go3:
 	@go run 03/day03.go
+pl3:
+	@swipl -q -l 03/day03.pl -t run
