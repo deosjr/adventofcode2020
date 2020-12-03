@@ -3,16 +3,15 @@
 :- ['../lib/io.pl'].
 
 :- dynamic([maxX/1, maxY/1]).
-maxX(0). maxY(0).
+maxY(0).
 
 parse(Y-Line) :-
     string_chars(Line, Chars),
+    ( not(maxX(_)) -> length(Chars, N), assertz(maxX(N)); true ),
     enumerate(Chars, Enumerated),
+    retract(maxY(_)), assertz(maxY(Y)),
     forall(member(X-C, Enumerated), (
-        (C = '.' ; (C = '#', assertz(tree(X,Y)))),
-        retract(maxY(_)), assertz(maxY(Y)),
-        maxX(CurrentMaxX),
-        ( CurrentMaxX #=< X -> retract(maxX(_)), NX #= X+1, assertz(maxX(NX)); true)
+        C = '.' ; (C = '#', assertz(tree(X,Y)))
     )).
 
 trees(XIncr, YIncr, Ans) :-
