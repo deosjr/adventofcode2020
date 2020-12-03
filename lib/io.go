@@ -5,6 +5,7 @@ import (
     "fmt"
     "io/ioutil"
     "os"
+    "strconv"
 )
 
 // ReadFile returns the entire file as one big string
@@ -29,6 +30,14 @@ func ReadFileByLine(day int, fn func(string)) {
     for scanner.Scan() {
         fn(scanner.Text())
     }
+}
+
+func MustParseInt(str string) int64 {
+    n, err := strconv.ParseInt(str, 10, 64)
+    if err != nil {
+        panic(err)
+    }
+    return n
 }
 
 func WritePart1(format string, values ...interface{}) {

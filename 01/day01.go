@@ -1,8 +1,6 @@
 package main
 
 import (
-    "strconv"
-
     "github.com/deosjr/adventofcode2020/lib"
 )
 
@@ -25,10 +23,7 @@ func find(m map[int64]struct{}, n, ignore int64) (int64, bool) {
 func main() {
     m := map[int64]struct{}{}
     readfunc := func(line string) {
-        n, err := strconv.ParseInt(line, 10, 64)
-        if err != nil {
-            panic(err)
-        }
+        n := lib.MustParseInt(line)
         m[n] = struct{}{}
     }
     lib.ReadFileByLine(1, readfunc)

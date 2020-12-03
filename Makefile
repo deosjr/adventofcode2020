@@ -1,6 +1,6 @@
-.PHONY: all, go1, pl1, go2, pl2
+.PHONY: all, go1, pl1, go2, pl2, go3
 all:
-	@for n in $$(seq -f "%02g" 1 2); do \
+	@for n in $$(seq -f "%02g" 1 3); do \
 		echo "$$n\n--------"; \
 		echo "Go"; \
 		go run $$n/day$$n.go; \
@@ -18,3 +18,6 @@ go2:
 	@go run 02/day02.go
 pl2:
 	@swipl -q -l 02/day02.pl -t run
+
+go3:
+	@go run 03/day03.go
