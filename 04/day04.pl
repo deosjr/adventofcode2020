@@ -1,13 +1,5 @@
-:- use_module(library(clpfd)).
-:- use_module(library(dcg/basics)).
-
 :- ['../lib/io.pl'].
 
-parse_entry(Passport, Entry) :-
-    string_codes(EntryStr, Entry),
-    split_string(EntryStr, ":", "", [Key, Value]),
-    passport_keyvalue(Key, Value, Passport).
-    
 passport_keyvalue("byr", Value, passport(Value,_,_,_,_,_,_,_)).
 passport_keyvalue("iyr", Value, passport(_,Value,_,_,_,_,_,_)).
 passport_keyvalue("eyr", Value, passport(_,_,Value,_,_,_,_,_)).
@@ -18,7 +10,7 @@ passport_keyvalue("pid", Value, passport(_,_,_,_,_,_,Value,_)).
 passport_keyvalue("cid", Value, passport(_,_,_,_,_,_,_,Value)).
 
 parse_passport(List, Passport) :-
-    foreach(member(Entry, List), parse_entry(Passport, Entry)).
+    foreach(member(Key-Value, List), passport_keyvalue(Key, Value, Passport)).
 
 valid1(Passport) :-
     Passport =.. [passport|Args],
@@ -75,26 +67,18 @@ valid2(Passport) :-
 part2(Passports, Ans) :-
     foldl([X,Y,Z]>>(valid2(X)->Z#=Y+1;Z#=Y), Passports, 0, Ans).
 
-concat_passports(Line, SoFar, Next) :-
-    (
-        Line = ""
-    ->
-        Next = [[]|SoFar]
-    ;
-        SoFar = [H|T],
-        split_string(Line, " ", "", Split),
-        append(H,Split,NewLine),
-        Next = [NewLine|T]
-    ).
+parse([Passport]) --> parse_passport(Passport), blanks, eos.
+parse([H|T]) --> parse_passport(H), "\n\n", parse(T).
+
+parse_passport([E]) --> parse_entry(E).
+parse_passport([E|T]) --> parse_entry(E), (" ";"\n"), parse_passport(T).
+
+parse_entry(Key-Value) --> string_without(" \n:", K), ":", string_without(" \n", V),
+    {string_codes(Key, K), string_codes(Value, V)}.
 
 run :-
-    read_and_split(4, "\n", Input),
-    Input = [L1, L2, L3, L4|T],
-    % for some unknown reason, first \n\n is handled differently?!? 
-    % not fixed with dcgs (and caused way more mess there too)
-    FixedInput = [L1, L2, L3, L4, ""|T],
-    foldl(concat_passports, FixedInput, [[]], [[]|RawPassports]),
-    maplist(parse_passport, RawPassports, Passports),
+    input_stream(4, parse(Lines)),
+    maplist(parse_passport, Lines, Passports),
     part1(Passports, Ans1),
     write_part1(Ans1),
     part2(Passports, Ans2),

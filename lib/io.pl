@@ -2,17 +2,6 @@
 :- use_module(library(pure_input)).
 :- use_module(library(dcg/basics)).
 
-read_file(Day, String) :-
-    format(string(Padded), "~|~`0t~d~2+", [Day]),
-    format(string(Filename), "~w/day~w.input", [Padded, Padded]),
-    read_file_to_string(Filename, String, []).
-
-% reads input and splits on a separator
-read_and_split(Day, Sep, Split) :-
-    read_file(Day, String),
-    split_string(String, Sep, "", SplitRaw),
-    select("", SplitRaw, Split).
-
 zip([], [], []).
 zip([X|XT], [Y|YT], [X-Y|ZT]) :-
     zip(XT, YT, ZT).
