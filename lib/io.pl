@@ -1,3 +1,7 @@
+:- use_module(library(clpfd)).
+:- use_module(library(pure_input)).
+:- use_module(library(dcg/basics)).
+
 read_file(Day, String) :-
     format(string(Padded), "~|~`0t~d~2+", [Day]),
     format(string(Filename), "~w/day~w.input", [Padded, Padded]),
@@ -29,6 +33,12 @@ enumerate(List, Enumerated) :-
     N0 #= N-1,
     numlist(0, N0, Indices),
     zip(Indices, List, Enumerated).
+
+input_stream(Day, Lambda) :-
+    format(string(Padded), "~|~`0t~d~2+", [Day]),
+    format(string(Filename), "~w/day~w.input", [Padded, Padded]),
+    open(Filename, read, Stream),
+    phrase_from_stream(Lambda, Stream).
     
 % Pred is the name of the predicate to list.
 % Arity is the arity of that predicate

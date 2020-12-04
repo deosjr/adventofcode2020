@@ -1,5 +1,3 @@
-:- use_module(library(clpfd)).
-
 :- ['../lib/io.pl'].
 
 part1(Ans) :-
@@ -14,12 +12,15 @@ part2(Ans) :-
     all_distinct([X, Y, Z]),
     Ans #= X*Y*Z.
 
-parse(Line) :-
-    number_string(Num, Line),
-    assertz(num(Num)).
+parse --> parse_int, blanks, eos.
+parse --> parse_int, blanks, parse.
+
+parse_int -->
+    integer(Num),
+    {assertz(num(Num))}.
 
 run :-
-    input(1, parse),
+    input_stream(1, parse),
     part1(Ans1),
     write_part1(Ans1),
     part2(Ans2),
