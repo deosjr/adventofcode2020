@@ -1,19 +1,22 @@
-%
-read_and_split(Day, Split) :-
+read_file(Day, String) :-
     format(string(Padded), "~|~`0t~d~2+", [Day]),
     format(string(Filename), "~w/day~w.input", [Padded, Padded]),
-    read_file_to_string(Filename, String, []),
-    split_string(String, "\n", "", SplitRaw),
+    read_file_to_string(Filename, String, []).
+
+% reads input and splits on a separator
+read_and_split(Day, Sep, Split) :-
+    read_file(Day, String),
+    split_string(String, Sep, "", SplitRaw),
     select("", SplitRaw, Split).
 
 % Lambda is a predicate that asserts facts for a line.
 input(Day, Lambda) :-
-    read_and_split(Day, Split),
+    read_and_split(Day, "\n", Split),
     forall(member(Line, Split), call(Lambda, Line)).
 
 % enumerates lines, so lambda should expect num-str tuples
 input_enumerated(Day, Lambda) :-
-    read_and_split(Day, Split),
+    read_and_split(Day, "\n", Split),
     enumerate(Split, Enumerated),
     forall(member(Line, Enumerated), call(Lambda, Line)).
 
