@@ -8,7 +8,6 @@ import (
 )
 
 var (
-    fourdigits = regexp.MustCompile(`^[0-9]{4}$`)
     haircolor = regexp.MustCompile(`^#[0-9a-f]{6}$`)
     eyecolor = regexp.MustCompile(`^(amb)|(blu)|(brn)|(gry)|(grn)|(hzl)|(oth)$`)
     passportID = regexp.MustCompile(`^[0-9]{9}$`)
@@ -26,15 +25,15 @@ func checkValid(m map[string]string) bool {
         v := m[key]
         switch key {
         case "byr":
-            if !fourdigits.MatchString(v) || !stringNumInRange(v, 1920, 2002) {
+            if !stringNumInRange(v, 1920, 2002) {
                 return false
             }
         case "iyr":
-            if !fourdigits.MatchString(v) || !stringNumInRange(v, 2010, 2020) {
+            if !stringNumInRange(v, 2010, 2020) {
                 return false
             }
         case "eyr":
-            if !fourdigits.MatchString(v) || !stringNumInRange(v, 2020, 2030) {
+            if !stringNumInRange(v, 2020, 2030) {
                 return false
             }
         case "hgt":
