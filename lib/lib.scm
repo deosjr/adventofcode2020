@@ -3,6 +3,7 @@
 ;; namely mk-vicare.scm, mk.scm and numbers.scm
 (load "lib/hardcodedpath.scm")
 
+;; anonymous vars in minikanren
 (define (_) 
   (vector unbound (new-scope) (random 10000000)))
 
@@ -11,9 +12,28 @@
   (== y `(,a . ,d))
   (conde
     [(== x a)]
-    ;;[(=/= x a) (membero x d)]
-    [(membero x d)]
-    )))
+    [(membero x d)])))
+
+;; faster-minikanren dropped disj in favor of the conde macro directly
+;; i need disj+ at least in order to implement unroll
+(define (disj g1 g2)
+    (lambda (st) 
+            (mplus* (g1 st) (g2 st))))
+
+(define (disj+ goals) 
+    (let ((gcar (car goals)) (gcdr (cdr goals)))
+      (cond
+        ((eq? gcdr '()) gcar)
+        (else (lambda (st) ((disj gcar (disj+ gcdr)) st))))))
+
+;; faster membero when checking in the same list multiple times
+;; rewrites the membero to a disjunction of member equals checks
+(define (membero-unrolled ylist)
+  (lambda (x)
+   (lambda (st) 
+     (let ((st (state-with-scope st nonlocal-scope))) (
+    (disj+ (map (lambda (f) (f x)) (map (lambda (y) (lambda (z) (== z y))) ylist)))
+    st )))))
 
 (define (read-file-oneline filename)
     (get-line (open-input-file filename)))
