@@ -1,14 +1,13 @@
 package main
 
 import (
-    "fmt"
     "strings"
     "strconv"
     "github.com/deosjr/adventofcode2020/lib"
 )
 
-func seatID(row, col int64) int64 {
-    return 8 * row + col
+func seatID(c coord) int64 {
+    return 8 * c.y + c.x
 }
 
 type coord struct {
@@ -17,41 +16,59 @@ type coord struct {
 }
 
 func main() {
-    var max int64
+    var p1 int64
     m := map[coord]struct{}{}
     readfunc := func(line string) {
-        rows := line[:7]
-        columns := line[7:]
+        rows, cols := line[:7], line[7:]
         rows = strings.Replace(rows, "F", "0", -1)
         rows = strings.Replace(rows, "B", "1", -1)
-        columns = strings.Replace(columns, "L", "0", -1)
-        columns = strings.Replace(columns, "R", "1", -1)
-        r, _ := strconv.ParseInt(rows, 2, 64)
-        c, _ := strconv.ParseInt(columns, 2, 64)
-        m[coord{x:c, y:r}] = struct{}{}
-        s := seatID(r, c)
-        if s > max {
-            max = s
+        cols = strings.Replace(cols, "L", "0", -1)
+        cols = strings.Replace(cols, "R", "1", -1)
+        row, _ := strconv.ParseInt(rows, 2, 64)
+        column, _ := strconv.ParseInt(cols, 2, 64)
+        c := coord{x:column, y:row}
+        m[c] = struct{}{}
+        s := seatID(c)
+        if s > p1 {
+            p1 = s
         }
     }
     lib.ReadFileByLine(5, readfunc)
 
-    lib.WritePart1("%d", max)
+    lib.WritePart1("%d", p1)
 
     // fastest way to get p2: print all seats
     // visually inspect and multiply seatID by hand
+    // rewritten to find the answer programmatically
+    var p2 int64
+Loop:
     for y:=0; y<128; y++ {
-        fmt.Printf("%3d: ", y)
         for x:=0; x<8; x++ {
-            _, ok := m[coord{int64(x),int64(y)}]
+            c := coord{int64(x), int64(y)}
+            _, ok := m[c]
             if ok {
-                fmt.Print("x")
+                continue
+            }
+            cleft := coord{c.x, c.y}
+            if x == 0 {
+                cleft.x, cleft.y = 7, cleft.y-1
             } else {
-                fmt.Print(".")
+                cleft.x = cleft.x - 1
+            }
+            _, okleft := m[cleft]
+            cright := coord{c.x, c.y}
+            if x == 7 {
+                cright.x, cright.y = 0, cright.y+1
+            } else {
+                cright.x = cright.x + 1
+            }
+            _, okright := m[cright]
+            if okleft && okright {
+                p2 = seatID(c)
+                break Loop
             }
         }
-        fmt.Println()
     }
 
-    //lib.WritePart2("%d", p2)
+    lib.WritePart2("%d", p2)
 }
