@@ -56,6 +56,13 @@
                 (else (split a (+ 1 b)))))))
                   (split 0 0))))
 
+(define string-replace
+  (lambda (s c r)
+    (let ((n (string-length s)))
+      (do ((i 0 (+ i 1)))
+          ((= i n))
+          (if (char=? (string-ref s i) c) (string-set! s i r)))) s ))
+
 ;; my own. trims one char to the right if match
 (define (trim-right str ch)
     (let ((len (string-length str)))

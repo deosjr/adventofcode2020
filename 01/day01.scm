@@ -20,8 +20,8 @@
         ;;(*o x y q))))
 
 ;; multiplication using *o is expensive so take it outside of miniKanren
-(define ans (fold-left * 1 (map parse-num (car part1))))
-(printf "Part 1: ~w\n" ans)
+(define ans1 (fold-left * 1 (map parse-num (car part1))))
+(printf "Part 1: ~w\n" ans1)
 
 ;; using the observation that if x+y+z = 2020,
 ;; at least 2 of x,y,z need to be < 2020/2
@@ -42,5 +42,5 @@
         (member-of-input z)
         (== q `(,x ,y ,z)))))
 
-(define ans (fold-left * 1 (map parse-num (car part2))))
-(printf "Part 2: ~w\n" ans)
+(define ans2 (fold-left * 1 (map parse-num (car part2))))
+(printf "Part 2: ~w\n" ans2)
