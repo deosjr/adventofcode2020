@@ -1,4 +1,4 @@
-.PHONY: all, go1, pl1, go2, pl2, go3, pl3, go4, pl4, go5
+.PHONY: all, go1, pl1, scm1, go2, pl2, go3, pl3, go4, pl4, go5
 all:
 	@for n in $$(seq -f "%02g" 1 5); do \
 		echo "$$n\n--------"; \
@@ -13,6 +13,8 @@ go1:
 	@go run 01/day01.go
 pl1:
 	@swipl -q -l 01/day01.pl -t run
+scm1:
+	@scheme --script 01/day01.scm
 
 go2:
 	@go run 02/day02.go
