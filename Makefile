@@ -3,9 +3,9 @@ all:
 	@for n in $$(seq -f "%02g" 1 8); do \
 		echo "$$n\n--------"; \
 		echo "Go"; \
-		go run $$n/day$$n.go; \
+		\time go run $$n/day$$n.go; \
 		echo "Prolog"; \
-		swipl -q -l $$n/day$$n.pl -t run; \
+		\time swipl -q -l $$n/day$$n.pl -t run; \
 		echo "";\
 	done
 
