@@ -19,18 +19,14 @@ count_contains(Color, Sum) :-
 part2(Ans) :-
     count_contains("shiny gold", Ans).
 
-parse --> parse_line, blanks, eos.
 parse --> parse_line, "\n", parse.
+parse --> parse_line, blanks, eos.
 
 parse_line --> parse_color(C), " bags contain ", parse_contents(C).
 
 parse_contents(_) --> "no other bags.". 
-parse_contents(C) --> parse_content(N, S), ".", {assert_without_doubles(C,N,S)}.
-parse_contents(C) --> parse_content(N, S), ", ", parse_contents(C), {assert_without_doubles(C,N,S)}.
-
-% TODO fix parsing so we dont need this
-assert_without_doubles(C, N, S) :-
-    (contains(C, N, S) -> true ; assertz(contains(C,N,S))).
+parse_contents(C) --> parse_content(N, S), ".", {assertz(contains(C,N,S))}.
+parse_contents(C) --> parse_content(N, S), ", ", parse_contents(C), {assertz(contains(C,N,S))}.
 
 parse_content(N, S) --> integer(N), " ", parse_color(S), " ", ("bag"; "bags").
 
