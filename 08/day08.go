@@ -10,7 +10,10 @@ type instr struct {
     value int
 }
 
-func exec(ins instr) (int, int) {
+type intset map[int]struct{}
+type program map[int]instr
+
+func exec(ins instr) (nptr, nacc int) {
     switch ins.typ {
     case "nop":
         return 1,0
@@ -23,30 +26,29 @@ func exec(ins instr) (int, int) {
     }
 }
 
-// bool is true if terminated and false if loop
-func run(program map[int]instr) (int, bool) {
+func run(prog program) (int, bool, intset) {
     ptr := 0
     acc := 0
-    visited := map[int]struct{}{}
+    visited := intset{}
     for {
-        ins, ok := program[ptr]
+        ins, ok := prog[ptr]
         if !ok {
             // terminated
-            return acc, true
+            return acc, true, visited
         }
         nptr, nacc := exec(ins)
         ptr += nptr
         acc += nacc
         if _, ok := visited[ptr]; ok {
             // loop
-            return acc, false
+            return acc, false, visited
         }
         visited[ptr] = struct{}{}
     }
 }
 
 func main() {
-    m := map[int]instr{}
+    m := program{}
     i := 0
     readfunc := func(line string) {
         var typ string
@@ -60,34 +62,99 @@ func main() {
     }
     lib.ReadFileByLine(8, readfunc)
 
-    p1, _ := run(m)
+    p1, _, visited := run(m)
     lib.WritePart1("%d", p1)
 
-    var p2 int
-    for i:=0; i<len(m); i++ {
-        newm := map[int]instr{}
+    // original part2: brute force through all the mutations and run
+    // new part2: find the single instruction to flip, then run that
+
+    // build a reverse lookup for next ptr values for each instr
+    // if we jmp outside the program we 'win'
+    // walking backwards, every instr is winning until the first 'real' jmp
+
+    // from nextptr to ptrs; to revisit to update winning
+    ptrs := map[int][]int{}
+    winning := intset{}
+    jmpseen := false
+    for i:=len(m)-1;i>=0;i-- {
         ins := m[i]
-        if ins.typ == "acc" {
+        // only count jmp when it jumps to a valid instruction
+        if ins.typ == "jmp" && i+ins.value<len(m) {
+            jmpseen = true
+        }
+        if !jmpseen {
+            winning[i] = struct{}{}
             continue
         }
-        if ins.typ == "nop" {
-            ins.typ = "jmp"
-        } else {
-            ins.typ = "nop"
-        }
-        newm[i] = ins
-        for k,v := range m {
-            if k == i {
+        switch ins.typ {
+        case "acc","nop":
+            ptrs[i+1] = append(ptrs[i+1], i)
+        case "jmp":
+            next := i+ins.value
+            if next >= len(m) {
+                winning[i] = struct{}{}
                 continue
             }
-            newm[k] = v
+            ptrs[i+ins.value] = append(ptrs[i+ins.value], i)
         }
-        acc, terminated := run(newm)
-        if terminated {
-            p2 = acc
+    }
+
+    // keep updating the set of ptrs that lead to a 'win'
+    // start from winning states and add all the previous ones, repeat
+    newlyAdded := winning
+    for len(newlyAdded) > 0 {
+        newnew := intset{}
+        for w, _ := range newlyAdded {
+            list, ok := ptrs[w]
+            if !ok {
+                continue
+            }
+            for _, v := range list {
+                winning[v] = struct{}{}
+                newnew[v] = struct{}{}
+            }
+        }
+        newlyAdded = newnew
+    }
+
+    // valid candidates to repair are those that would lead to a 'win'
+    // and are actually visited in the original run of the program (p1)
+    // originally kept a set of candidates but we are guaranteed to find only 1
+    var instrToRepair int
+    for i:=0; i<len(m); i++ {
+        if _, ok := winning[i]; ok {
+            continue
+        }
+        if _, ok := visited[i]; !ok {
+            continue
+        }
+        ins := m[i]
+        var nptr int
+        switch ins.typ {
+        case "acc":
+            continue
+        case "nop":
+            nptr = i+ins.value
+        case "jmp":
+            nptr = i+1
+        }
+        if _, ok := winning[nptr]; ok {
+            instrToRepair = i
             break
         }
     }
+
+    // now repair the only candidate and run the program again
+    var p2 int
+    ins := m[instrToRepair]
+    if ins.typ == "nop" {
+        ins.typ = "jmp"
+    } else {
+        ins.typ = "nop"
+    }
+    m[instrToRepair] = ins
+    acc, _, _ := run(m)
+    p2 = acc
 
     lib.WritePart2("%d", p2)
 }
