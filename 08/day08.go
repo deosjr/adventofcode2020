@@ -95,7 +95,7 @@ func main() {
                 winning[i] = struct{}{}
                 continue
             }
-            ptrs[i+ins.value] = append(ptrs[i+ins.value], i)
+            ptrs[next] = append(ptrs[next], i)
         }
     }
 
