@@ -47,3 +47,6 @@ go7:
 	@go run 07/day07.go
 pl7:
 	@swipl -q -l 07/day07.pl -t run
+
+go8:
+	@go run 08/day08.go
