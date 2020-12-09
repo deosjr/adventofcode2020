@@ -10,6 +10,9 @@ import (
 func find(m map[int64]struct{}, n int64) bool {
 	for k, _ := range m {
 		v := n - k
+        if v == k {
+            continue
+        }
 		if _, ok := m[v]; ok {
 			return true
 		}
@@ -42,6 +45,8 @@ func main() {
 	}
 	lib.WritePart1("%d", p1)
 
+    // brute forcing p2. neat solution would be sliding window
+    // but I did not think of that in time :) maybe in prolog
 	smallest := func(a, b int) int64 {
 		var min int64 = math.MaxInt64
 		var max int64 = 0
