@@ -57,3 +57,6 @@ go9:
 	@go run 09/day09.go
 pl9:
 	@swipl -q -l 09/day09.pl -t run
+	
+go10:
+	@go run 10/day10.go
