@@ -84,15 +84,27 @@ func runUntilStable(oldgrid grid, n int, direct bool) int {
     }
 }
 
-func inView(oldgrid, newgrid grid, co coord, direct bool) (permEmpty, permOccupied int) {
+// the function that does everything (bad, I know..):
+// look at all directions, count neighbours we know are empty/occupied
+// also returns all neighbours it considered
+func inView(oldgrid, newgrid grid, co coord, direct bool) (permEmpty, permOccupied int, nns []coord) {
     for _, c := range neighbours {
         prev := co
-    Loop:
         for {
             next := coord{prev.x + c.x, prev.y + c.y}
             n, ok := oldgrid[next]
             if !ok {
                 permEmpty++
+                break
+            }
+            if newgrid == nil {
+                nns = append(nns, next)
+            }
+            if !direct && n == floor {
+                prev = next
+                continue
+            }
+            if newgrid == nil {
                 break
             }
             switch n {
@@ -101,26 +113,16 @@ func inView(oldgrid, newgrid grid, co coord, direct bool) (permEmpty, permOccupi
                     permEmpty++
                 }
             case empty:
-                nn, ok := newgrid[next]
-                if !ok {
-                    break Loop
-                }
-                switch nn {
+                switch newgrid[next] {
                 case empty:
                     permEmpty++
                 case occupied:
                     permOccupied++
                 case floor:
-                    panic("floor should never change!")
+                    break
                 }
-                break Loop
-            case occupied:
-                panic("never update oldgrid!")
             }
-            if direct {
-                break
-            }
-            prev = next
+            break
         }
     }
     return
@@ -129,33 +131,51 @@ func inView(oldgrid, newgrid grid, co coord, direct bool) (permEmpty, permOccupi
 // determine stable grid without simulating all frames
 func stabilize(g grid, n int, direct bool) int {
     newgrid := grid{}
-    toCheck := map[coord]struct{}{}
+    newlyadded := grid{}
     for k,v := range g {
         if v == floor {
-            // not needed but nice
-            newgrid[k] = v
+            newgrid[k] = floor
             continue
         }
-        toCheck[k] = struct{}{}
+        empty, _, _ := inView(g, grid{}, k, direct)
+        if empty > 8 - n {
+            newgrid[k] = occupied
+            newlyadded[k] = occupied
+        }
     }
+    toCheck := newToCheck(g, newlyadded, newgrid, direct)
     for len(toCheck) > 0 {
         toAdd := grid{}
         for k, _ := range toCheck {
-            emp, occ := inView(g, newgrid, k, direct)
+            emp, occ, _ := inView(g, newgrid, k, direct)
             if occ > 0 {
                 toAdd[k] = empty
-                delete(toCheck, k)
             }
-            if emp > 8 - n {
+            if emp > 8 - n && occ == 0 {
                 toAdd[k] = occupied
-                delete(toCheck, k)
             }
         }
         for k, v := range toAdd {
             newgrid[k] = v
         }
+        toCheck = newToCheck(g, toAdd, newgrid, direct)
     }
     return sumOccupied(newgrid)
+}
+
+func newToCheck(g, newlyadded, newgrid grid, direct bool) map[coord]struct{} {
+    toCheck := map[coord]struct{}{}
+    for k, _ := range newlyadded {
+        _, _, nns := inView(g, nil, k, direct)
+        for _, n := range nns {
+            _, ok := newgrid[n]
+            if ok {
+                continue
+            }
+            toCheck[n] = struct{}{}
+        }
+    }
+    return toCheck
 }
 
 func main() {
@@ -182,7 +202,7 @@ func main() {
     //p2 := runUntilStable(m, 5, false)
     //lib.WritePart2("%d", p2)
 
-    // runs almost twice as fast
+    // runs 3x as fast as the above
     t1 := stabilize(m, 4, true)
     lib.WritePart1("%d", t1)
 
