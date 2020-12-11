@@ -22,11 +22,11 @@ stabilize(Grid, N, Direct, StableGrid) :-
     new_to_check(NeighboursPred, FirstKnownOccupied, NewGrid, ToCheck),
     stabilize_rec(N, ViewPred, NeighboursPred, ToCheck, FirstEntries, StableGrid).
 
-new_to_check(NeighboursPred, NewlyAdded, NewGrid, ToCheckSet) :-
+new_to_check(NeighboursPred, NewlyAdded, NewGrid, ToCheck) :-
     maplist(NeighboursPred, NewlyAdded, ToCheckNested),
     flatten(ToCheckNested, ToCheckWithDoubles),
-    exclude([X-Y]>>(key(X, Y, Key), get_dict(Key, NewGrid, _)), ToCheckWithDoubles, ToCheck), 
-    list_to_set(ToCheck, ToCheckSet).
+    list_to_set(ToCheckWithDoubles, NewToCheck),
+    exclude([X-Y]>>(key(X, Y, Key), get_dict(Key, NewGrid, _)), NewToCheck, ToCheck).
     
 stabilize_rec(N, ViewPred, NeighboursPred, ToCheck, GridAcc, StableGrid) :-
     %length(ToCheck, TEST), writeln(TEST),

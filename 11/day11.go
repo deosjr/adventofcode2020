@@ -17,6 +17,8 @@ const (
     occupied
 )
 
+var ndx = []coord{ {-1, -1}, {-1, +1}, {-1, 0}, {+1, -1}, {+1, +1}, {+1, 0}, {0, -1}, {0, +1} }
+
 type grid map[coord]cell
 
 func simulate(old grid, n int, direct bool) (grid, bool) {
@@ -39,11 +41,9 @@ func simulate(old grid, n int, direct bool) (grid, bool) {
     return newgrid, changed
 }
 
-var neighbours = []coord{ {-1, -1}, {-1, +1}, {-1, 0}, {+1, -1}, {+1, +1}, {+1, 0}, {0, -1}, {0, +1} }
-
 func occupiedInView(g grid, co coord, direct bool) int {
     sum := 0
-    for _, c := range neighbours {
+    for _, c := range ndx {
         prev := co
         for {
             next := coord{prev.x + c.x, prev.y + c.y}
@@ -64,16 +64,6 @@ func occupiedInView(g grid, co coord, direct bool) int {
     return sum
 }
 
-func sumOccupied(g grid) int {
-    sum := 0
-    for _, v := range g {
-        if v == occupied {
-            sum++
-        }
-    }
-    return sum
-}
-
 func runUntilStable(oldgrid grid, n int, direct bool) int {
     for {
         newgrid, more := simulate(oldgrid, n, direct)
@@ -84,45 +74,53 @@ func runUntilStable(oldgrid grid, n int, direct bool) int {
     }
 }
 
-// the function that does everything (bad, I know..):
-// look at all directions, count neighbours we know are empty/occupied
-// also returns all neighbours it considered
-func inView(oldgrid, newgrid grid, co coord, direct bool) (permEmpty, permOccupied int, nns []coord) {
-    for _, c := range neighbours {
+func sumOccupied(g grid) int {
+    sum := 0
+    for _, v := range g {
+        if v == occupied {
+            sum++
+        }
+    }
+    return sum
+}
+
+func getNeighbours(g grid, co coord, direct bool) []coord {
+    nns := []coord{}
+    for _, c := range ndx {
         prev := co
         for {
             next := coord{prev.x + c.x, prev.y + c.y}
-            n, ok := oldgrid[next]
+            n, ok := g[next]
             if !ok {
-                permEmpty++
                 break
-            }
-            if newgrid == nil {
-                nns = append(nns, next)
             }
             if !direct && n == floor {
                 prev = next
                 continue
             }
-            if newgrid == nil {
-                break
-            }
-            switch n {
-            case floor:
-                if direct {
-                    permEmpty++
-                }
-            case empty:
-                switch newgrid[next] {
-                case empty:
-                    permEmpty++
-                case occupied:
-                    permOccupied++
-                case floor:
-                    break
-                }
-            }
+            nns = append(nns, next)
             break
+        }
+    }
+    return nns
+}
+
+func inView(oldgrid, newgrid grid, co coord, direct bool, neighbours map[coord][]coord) (permEmpty, permOccupied int) {
+    nns := neighbours[co]
+    permEmpty = 8 - len(nns)
+    for _, c := range nns {
+        switch oldgrid[c] {
+        case floor:
+            if direct {
+                permEmpty++
+            }
+        case empty:
+            switch newgrid[c] {
+            case empty:
+                permEmpty++
+            case occupied:
+                permOccupied++
+            }
         }
     }
     return
@@ -132,22 +130,28 @@ func inView(oldgrid, newgrid grid, co coord, direct bool) (permEmpty, permOccupi
 func stabilize(g grid, n int, direct bool) int {
     newgrid := grid{}
     newlyadded := grid{}
-    for k,v := range g {
+    // cache neighbours
+    neighbours := map[coord][]coord{}
+    for k, v := range g {
         if v == floor {
             newgrid[k] = floor
             continue
         }
-        empty, _, _ := inView(g, grid{}, k, direct)
+        neighbours[k] = getNeighbours(g, k, direct)
+    }
+    // neighbours now contains all empty chairs
+    for k, _ := range neighbours {
+        empty, _ := inView(g, grid{}, k, direct, neighbours)
         if empty > 8 - n {
             newgrid[k] = occupied
             newlyadded[k] = occupied
         }
     }
-    toCheck := newToCheck(g, newlyadded, newgrid, direct)
+    toCheck := newToCheck(g, newlyadded, newgrid, direct, neighbours)
     for len(toCheck) > 0 {
         toAdd := grid{}
         for k, _ := range toCheck {
-            emp, occ, _ := inView(g, newgrid, k, direct)
+            emp, occ := inView(g, newgrid, k, direct, neighbours)
             if occ > 0 {
                 toAdd[k] = empty
             }
@@ -158,16 +162,15 @@ func stabilize(g grid, n int, direct bool) int {
         for k, v := range toAdd {
             newgrid[k] = v
         }
-        toCheck = newToCheck(g, toAdd, newgrid, direct)
+        toCheck = newToCheck(g, toAdd, newgrid, direct, neighbours)
     }
     return sumOccupied(newgrid)
 }
 
-func newToCheck(g, newlyadded, newgrid grid, direct bool) map[coord]struct{} {
+func newToCheck(g, newlyadded, newgrid grid, direct bool, neighbours map[coord][]coord) map[coord]struct{} {
     toCheck := map[coord]struct{}{}
     for k, _ := range newlyadded {
-        _, _, nns := inView(g, nil, k, direct)
-        for _, n := range nns {
+        for _, n := range neighbours[k] {
             _, ok := newgrid[n]
             if ok {
                 continue
@@ -188,8 +191,6 @@ func main() {
                 m[coord{x:x, y:y}] = floor
             case 'L':
                 m[coord{x:x, y:y}] = empty
-            case '#':
-                m[coord{x:x, y:y}] = occupied
             }
         }
         y++
