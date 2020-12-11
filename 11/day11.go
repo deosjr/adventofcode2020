@@ -19,11 +19,11 @@ const (
 
 type grid map[coord]cell
 
-func simulate(old grid, nfunc func(grid, coord)int, n int) (grid, bool) {
+func simulate(old grid, n int, direct bool) (grid, bool) {
     newgrid := grid{}
     changed := false
     for k,v := range old {
-        num := nfunc(old, k)
+        num := occupiedInView(old, k, direct)
         if num == 0 && v == empty {
             newgrid[k] = occupied
             changed = true
@@ -39,26 +39,26 @@ func simulate(old grid, nfunc func(grid, coord)int, n int) (grid, bool) {
     return newgrid, changed
 }
 
-func numDirectOccupied(g grid, co coord) int {
+var neighbours = []coord{ {-1, -1}, {-1, +1}, {-1, 0}, {+1, -1}, {+1, +1}, {+1, 0}, {0, -1}, {0, +1} }
+
+func occupiedInView(g grid, co coord, direct bool) int {
     sum := 0
-    x, y := co.x, co.y
-    neighbours := []coord{
-        {x-1, y-1},
-        {x-1, y+1},
-        {x-1, y},
-        {x+1, y-1},
-        {x+1, y+1},
-        {x+1, y},
-        {x, y-1},
-        {x, y+1},
-    }
     for _, c := range neighbours {
-        n, ok := g[c]
-        if ! ok {
-            continue
-        }
-        if n == occupied {
-            sum++
+        prev := co
+        for {
+            next := coord{prev.x + c.x, prev.y + c.y}
+            n, ok := g[next]
+            if !ok {
+                break
+            }
+            if n == occupied {
+                sum++
+                break
+            }
+            if n == empty || direct {
+                break
+            }
+            prev = next
         }
     }
     return sum
@@ -74,37 +74,14 @@ func sumOccupied(g grid) int {
     return sum
 }
 
-func occupiedInView(g grid, co coord) int {
-    sum := 0
-    neighbours := []coord{
-        {-1, -1},
-        {-1, +1},
-        {-1, 0},
-        {+1, -1},
-        {+1, +1},
-        {+1, 0},
-        {0, -1},
-        {0, +1},
-    }
-    for _, c := range neighbours {
-        prev := co
-        for {
-            next := coord{prev.x + c.x, prev.y + c.y}
-            n, ok := g[next]
-            if !ok {
-                break
-            }
-            if n == empty {
-                break
-            }
-            if n == occupied {
-                sum++
-                break
-            }
-            prev = next
+func runUntilStable(oldgrid grid, n int, direct bool) int {
+    for {
+        newgrid, more := simulate(oldgrid, n, direct)
+        if !more {
+            return sumOccupied(oldgrid)
         }
+        oldgrid = newgrid
     }
-    return sum
 }
 
 func main() {
@@ -125,27 +102,9 @@ func main() {
     }
     lib.ReadFileByLine(11, readfunc)
 
-    var p1 int
-    oldgrid := m
-    for {
-        newgrid, more := simulate(oldgrid, numDirectOccupied, 4)
-        if !more {
-            p1 = sumOccupied(oldgrid)
-            break
-        }
-        oldgrid = newgrid
-    }
+    p1 := runUntilStable(m, 4, true)
     lib.WritePart1("%d", p1)
 
-    var p2 int
-    oldgrid = m
-    for {
-        newgrid, more := simulate(oldgrid, occupiedInView, 5)
-        if !more {
-            p2 = sumOccupied(oldgrid)
-            break
-        }
-        oldgrid = newgrid
-    }
+    p2 := runUntilStable(m, 5, false)
     lib.WritePart2("%d", p2)
 }
