@@ -84,6 +84,80 @@ func runUntilStable(oldgrid grid, n int, direct bool) int {
     }
 }
 
+func inView(oldgrid, newgrid grid, co coord, direct bool) (permEmpty, permOccupied int) {
+    for _, c := range neighbours {
+        prev := co
+    Loop:
+        for {
+            next := coord{prev.x + c.x, prev.y + c.y}
+            n, ok := oldgrid[next]
+            if !ok {
+                permEmpty++
+                break
+            }
+            switch n {
+            case floor:
+                if direct {
+                    permEmpty++
+                }
+            case empty:
+                nn, ok := newgrid[next]
+                if !ok {
+                    break Loop
+                }
+                switch nn {
+                case empty:
+                    permEmpty++
+                case occupied:
+                    permOccupied++
+                case floor:
+                    panic("floor should never change!")
+                }
+                break Loop
+            case occupied:
+                panic("never update oldgrid!")
+            }
+            if direct {
+                break
+            }
+            prev = next
+        }
+    }
+    return
+}
+
+// determine stable grid without simulating all frames
+func stabilize(g grid, n int, direct bool) int {
+    newgrid := grid{}
+    toCheck := map[coord]struct{}{}
+    for k,v := range g {
+        if v == floor {
+            // not needed but nice
+            newgrid[k] = v
+            continue
+        }
+        toCheck[k] = struct{}{}
+    }
+    for len(toCheck) > 0 {
+        toAdd := grid{}
+        for k, _ := range toCheck {
+            emp, occ := inView(g, newgrid, k, direct)
+            if occ > 0 {
+                toAdd[k] = empty
+                delete(toCheck, k)
+            }
+            if emp > 8 - n {
+                toAdd[k] = occupied
+                delete(toCheck, k)
+            }
+        }
+        for k, v := range toAdd {
+            newgrid[k] = v
+        }
+    }
+    return sumOccupied(newgrid)
+}
+
 func main() {
     m := grid{}
     y := 0
@@ -102,9 +176,16 @@ func main() {
     }
     lib.ReadFileByLine(11, readfunc)
 
-    p1 := runUntilStable(m, 4, true)
-    lib.WritePart1("%d", p1)
+    //p1 := runUntilStable(m, 4, true)
+    //lib.WritePart1("%d", p1)
 
-    p2 := runUntilStable(m, 5, false)
-    lib.WritePart2("%d", p2)
+    //p2 := runUntilStable(m, 5, false)
+    //lib.WritePart2("%d", p2)
+
+    // runs almost twice as fast
+    t1 := stabilize(m, 4, true)
+    lib.WritePart1("%d", t1)
+
+    t2 := stabilize(m, 5, false)
+    lib.WritePart2("%d", t2)
 }
