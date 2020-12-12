@@ -1,134 +1,128 @@
 :- ['../lib/io.pl'].
 
-:- dynamic([grid/3, stable/3]).
+:- dynamic([grid/2, stable/2, nns/2]).
 
 stabilize(N, Direct) :-
-    neighbours(Neighbours),
-    ViewPred = in_view(Direct, Neighbours),
+    findall(C, grid(C,empty), Chairs),
+    forall(member(C, Chairs), assert_neighbours(Direct, C)),
 
-    findall(X-Y, (
-        grid(X,Y,empty),
-        call(ViewPred, X-Y, E, _),
+    findall(C, (
+        grid(C,empty),
+        in_view(Direct, C, E, _),
         E #> 8-N
     ), FirstKnownOccupied),
 
-    forall(member(X-Y, FirstKnownOccupied), assertz(stable(X,Y,occupied))),
+    forall(member(C, FirstKnownOccupied), assertz(stable(C,occupied))),
 
-    NeighboursPred = get_neighbours(Direct, Neighbours),
+    findall(C, grid(C, floor), Floors),
+    forall(member(C, Floors), assertz(stable(C,floor))),
 
-    findall(X-Y, grid(X, Y, floor), Floors),
-    forall(member(X-Y, Floors), assertz(stable(X,Y,floor))),
+    new_to_check(FirstKnownOccupied, ToCheck),
+    stabilize_rec(N, Direct, ToCheck).
 
-    new_to_check(NeighboursPred, FirstKnownOccupied, ToCheck),
-    stabilize_rec(N, ViewPred, NeighboursPred, ToCheck).
-
-new_to_check(NeighboursPred, NewlyAdded, ToCheck) :-
-    maplist(NeighboursPred, NewlyAdded, ToCheckNested),
+new_to_check(NewlyAdded, ToCheck) :-
+    maplist(nns, NewlyAdded, ToCheckNested),
     flatten(ToCheckNested, ToCheckWithDoubles),
     list_to_set(ToCheckWithDoubles, NewToCheck),
-    exclude([X-Y]>>(stable(X,Y,_)), NewToCheck, ToCheck).
+    exclude([C]>>(stable(C, _)), NewToCheck, ToCheck).
     
-stabilize_rec(N, ViewPred, NeighboursPred, ToCheck) :-
-    maplist({ViewPred}/[C, Out]>>(call(ViewPred, C, Empty, Occupied), Out=[C,Empty,Occupied]), ToCheck, List),
+stabilize_rec(N, Direct, ToCheck) :-
+    maplist([C, Out]>>(in_view(Direct, C, Empty, Occupied), Out=[C,Empty,Occupied]), ToCheck, List),
     include([[_,_,Occupied]]>>(Occupied #> 0), List, PermEmpty),
     include([[_,Empty,Occupied]]>>(Occupied #= 0, Empty #> 8-N), List, PermOccupied),
     maplist([[C,_,_],A]>>(A=C), PermEmpty, PermEmptyCoords),
     maplist([[C,_,_],A]>>(A=C), PermOccupied, PermOccupiedCoords),
     append(PermEmptyCoords, PermOccupiedCoords, NewlyAdded),
-    forall(member(X-Y, PermEmptyCoords), assertz(stable(X,Y,empty))),
-    forall(member(X-Y, PermOccupiedCoords), assertz(stable(X,Y,occupied))),
-    new_to_check(NeighboursPred, NewlyAdded, NewToCheck),
+    forall(member(C, PermEmptyCoords), assertz(stable(C,empty))),
+    forall(member(C, PermOccupiedCoords), assertz(stable(C,occupied))),
+    new_to_check(NewlyAdded, NewToCheck),
     (
         NewToCheck = []
     ->
         true
     ;
-        stabilize_rec(N, ViewPred, NeighboursPred, NewToCheck)
+        stabilize_rec(N, Direct, NewToCheck)
     ).
 
 neighbours([c(-1,-1),c(-1,1),c(-1,0),c(1,-1),c(1,1),c(1,0),c(0,-1),c(0,1)]).
 
-get_neighbours(Direct, DXs, X-Y, Neighbours) :-
-    Closure = get_neighbours_rec(Direct, X-Y),
+assert_neighbours(Direct, Coord) :-
+    neighbours(DXs),
     foldl([A,B,C]>>(
-        call(Closure, A, [], Ns),
-        append(Ns, B, C)
-    ), DXs, [], Neighbours).
-
-get_neighbours_rec(Direct, X-Y, c(DX,DY), Sofar, Neighbours) :-
-    NX #= X + DX, NY #= Y + DY,
-    (
-        grid(NX, NY, Value)
-    ->
-        NewNeighbours = [NX-NY|Sofar],
         (
-            Value = floor
+            get_neighbours_rec(Direct, Coord, A, Ns)
         ->
-            (
-                Direct
-            ->
-                Neighbours = NewNeighbours
-            ;
-                get_neighbours_rec(false, NX-NY, c(DX,DY), NewNeighbours, Neighbours)
-            )
+            append(Ns, B, C)
         ;
-            % because it should never be occ in old grid
-            Value = empty,
-            Neighbours = NewNeighbours
+            C = B
+        )
+    ), DXs, [], Neighbours),
+    assertz(nns(Coord, Neighbours)).
+
+get_neighbours_rec(Direct, X-Y, c(DX,DY), Neighbours) :-
+    NX #= X + DX, NY #= Y + DY,
+    grid(NX-NY, Value),
+    (
+        Value = floor
+    ->
+        (
+            Direct
+        ->
+            Neighbours = [NX-NY]
+        ;
+            get_neighbours_rec(false, NX-NY, c(DX,DY), Neighbours)
         )
     ;
-        Neighbours = Sofar
+        % because it should never be occ in old grid
+        Value = empty,
+        Neighbours = [NX-NY]
     ).
 
-in_view(Direct, Neighbours, X-Y, PermanentEmpty, PermanentOccupied) :-
-    Closure = in_view_rec(Direct, X-Y),
+in_view(Direct, Coord, PermanentEmpty, PermanentOccupied) :-
+    nns(Coord, Neighbours),
+    length(Neighbours, N),
+    StartPermEmpty #= 8 - N,
     foldl([A,B,C]>>(
-        call(Closure, A, Empty, Occ),
+        in_view_rec(Direct, A, Empty, Occ),
         B = EmptyAcc-OccAcc,
         NEmpty #= Empty + EmptyAcc, NOcc #= Occ + OccAcc,
         C = NEmpty-NOcc
-    ), Neighbours, 0-0, PermanentEmpty-PermanentOccupied).
+    ), Neighbours, StartPermEmpty-0, PermanentEmpty-PermanentOccupied).
 
-in_view_rec(Direct, X-Y, c(DX,DY), Empty, Occupied) :-
-    NX #= X + DX, NY #= Y + DY,
+in_view_rec(Direct, Coord, Empty, Occupied) :-
+    grid(Coord, Value),
     (
-        grid(NX, NY, Value)
+        Value = floor
     ->
         (
-            Value = floor
+            Direct
+        ->
+            Empty #= 1, Occupied #= 0
+        ;
+            Empty #= 0, Occupied #= 0
+        )
+    ;
+        % because it should never be occ in old grid
+        Value = empty,
+        (
+            stable(Coord, NewValue)
         ->
             (
-                Direct
+                NewValue = empty
             ->
                 Empty #= 1, Occupied #= 0
             ;
-                in_view_rec(false, NX-NY, c(DX,DY), Empty, Occupied)
+                % no floors in newgrid
+                NewValue = occupied,
+                Empty #= 0, Occupied #= 1
             )
         ;
-            % because it should never be occ in old grid
-            Value = empty,
-            (
-                stable(NX, NY, NewValue)
-            ->
-                (
-                    NewValue = empty
-                ->
-                    Empty #= 1, Occupied #= 0
-                ;
-                    % no floors in newgrid
-                    NewValue = occupied,
-                    Empty #= 0, Occupied #= 1
-                )
-            ;
-                Empty #= 0, Occupied #= 0
-            )
+            Empty #= 0, Occupied #= 0
         )
-    ;
-        Empty #= 1, Occupied #= 0
     ).
 
 sumOccupied(Ans) :-
-    findall(X-Y, stable(X, Y, occupied), List),
+    findall(C, stable(C, occupied), List),
     length(List, Ans).
 
 part1(Ans) :-
@@ -136,7 +130,8 @@ part1(Ans) :-
     sumOccupied(Ans).
 
 part2(Ans) :-
-    retractall(stable(_,_,_)),
+    retractall(stable(_,_)),
+    retractall(nns(_,_)),
     stabilize(5, false),
     sumOccupied(Ans).
 
@@ -146,8 +141,8 @@ parse(Y) --> parse(0, Y, Line), blanks, {NY #= Y+1},
 parse(Y) --> parse(0, Y, Line), blanks, eos, {assert_line(Line)}.
 
 parse(_, _, []) --> "\n".
-parse(X, Y, [grid(X,Y,floor)|T]) --> ".", {NX #= X+1}, parse(NX, Y, T).
-parse(X, Y, [grid(X,Y,empty)|T]) --> "L", {NX #= X+1}, parse(NX, Y, T).
+parse(X, Y, [grid(X-Y,floor)|T]) --> ".", {NX #= X+1}, parse(NX, Y, T).
+parse(X, Y, [grid(X-Y,empty)|T]) --> "L", {NX #= X+1}, parse(NX, Y, T).
 
 assert_line([]).
 assert_line([H|T]) :-
