@@ -3,19 +3,16 @@
 :- dynamic([grid/2, stable/2, nns/2]).
 
 stabilize(N, Direct) :-
-    findall(C, grid(C,empty), Chairs),
-    forall(member(C, Chairs), assert_neighbours(Direct, C)),
+    findall(C, (grid(C,empty), assert_neighbours(Direct, C)), _),
 
     findall(C, (
         grid(C,empty),
         in_view(Direct, C, E, _),
-        E #> 8-N
+        E #> 8-N,
+        assertz(stable(C,occupied))
     ), FirstKnownOccupied),
 
-    forall(member(C, FirstKnownOccupied), assertz(stable(C,occupied))),
-
-    findall(C, grid(C, floor), Floors),
-    forall(member(C, Floors), assertz(stable(C,floor))),
+    findall(C, (grid(C, floor), assertz(stable(C,floor))), _),
 
     new_to_check(FirstKnownOccupied, ToCheck),
     stabilize_rec(N, Direct, ToCheck).
@@ -28,13 +25,12 @@ new_to_check(NewlyAdded, ToCheck) :-
     
 stabilize_rec(N, Direct, ToCheck) :-
     maplist([C, Out]>>(in_view(Direct, C, Empty, Occupied), Out=[C,Empty,Occupied]), ToCheck, List),
-    include([[_,_,Occupied]]>>(Occupied #> 0), List, PermEmpty),
-    include([[_,Empty,Occupied]]>>(Occupied #= 0, Empty #> 8-N), List, PermOccupied),
-    maplist([[C,_,_],A]>>(A=C), PermEmpty, PermEmptyCoords),
-    maplist([[C,_,_],A]>>(A=C), PermOccupied, PermOccupiedCoords),
-    append(PermEmptyCoords, PermOccupiedCoords, NewlyAdded),
-    forall(member(C, PermEmptyCoords), assertz(stable(C,empty))),
-    forall(member(C, PermOccupiedCoords), assertz(stable(C,occupied))),
+    include({N}/[[C,E,O]]>>(
+        (O #> 0, assertz(stable(C,empty)))
+        ; ( O #= 0, E #> 8-N, assertz(stable(C,occupied))) 
+    ), List, NewlyAddedPairs),
+    maplist([[C,_,_],X]>>(X=C), NewlyAddedPairs, NewlyAdded),
+
     new_to_check(NewlyAdded, NewToCheck),
     (
         NewToCheck = []
