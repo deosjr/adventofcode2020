@@ -16,7 +16,10 @@ sortpred(<, _-V1, _-V2) :-
 part2(Buses, Ans) :-
     predsort(sortpred, Buses, Sorted),
     foldl([I-P, TS-N, NT-NN]>>(
-        [M,T] ins 1..1000000000000000000000,
+        % output was bigger than 100000000000000
+        % tuning M and T ranges speeds this up quite a bit ofc
+        M in 1..100000000000000,
+        T in 100000000000000..1000000000000000,
         T mod P #= -I mod P,
         T #= TS + M * N,
         label([T]),
