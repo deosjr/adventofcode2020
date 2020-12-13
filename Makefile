@@ -72,3 +72,6 @@ go12:
 	@go run 12/day12.go
 pl12:
 	@swipl -q -l 12/day12.pl -t run
+
+go13:
+	@go run 13/day13.go
