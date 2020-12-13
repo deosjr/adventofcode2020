@@ -1,7 +1,6 @@
 package main
 
 import (
-    "fmt"
     "math"
     "strings"
 
@@ -37,22 +36,12 @@ func main() {
 
     lib.WritePart1("%d", p1)
 
-
-    // TODO REMOVE
-    //indices := []int{2, 3} // sorted
-    //busesp2 := map[int]int64{
-        //0: 17,
-        //2: 13,
-        //3: 19,
-    //}
-    //busesp2[0] = 971
-    //busesp2[48] = 17
-    fmt.Println(indices, busesp2)
     var t int64 = 0
     n1 := busesp2[0]
-    //ni := busesp2[i]
     for _, i := range indices {
-        for j:=1; j< 100000000; j++ {
+        var j int64
+        for {
+            j++
             jin := t + int64(j)*n1
             test := (jin + int64(i)) % busesp2[i]
             if test != 0 {
@@ -63,7 +52,6 @@ func main() {
             break
         }
     }
-    fmt.Println(t)
 
-    //lib.WritePart2("%d",  p2)
+    lib.WritePart2("%d",  t)
 }
