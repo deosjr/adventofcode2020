@@ -2,15 +2,12 @@ package main
 
 import (
     "fmt"
+    "math"
     "strconv"
     "strings"
 
     "github.com/deosjr/adventofcode2020/lib"
 )
-
-func to36BitString(n int64) string {
-    return fmt.Sprintf("%036b", n)
-}
 
 func sumValues(m map[int64]int64) (sum int64) {
     for _, v := range m {
@@ -27,66 +24,56 @@ func mustParseInt(str string) int64 {
     return v
 }
 
-func part1(mask string, value int64) int64 {
-    valuestring := to36BitString(value)
-    var str string
-    for i, k := range mask {
-        if k != 'X' {
-            str += string(k)
-            continue
-        }
-        str += string(valuestring[i])
-    }
-    return mustParseInt(str)
+func part1(maskX, mask1, value int64) int64 {
+    return (value & maskX) | mask1
 }
 
-func part2(mask string, address int64) []int64 {
-    addressstring := to36BitString(address)
-    var newstrs []string
-    strs := []string{""}
-    for i, k := range mask {
-        switch k {
-        case 'X':
-            for _, str := range strs {
-                newstrs = append(newstrs, str + "0")
-            }
-            for _, str := range strs {
-                newstrs = append(newstrs, str + "1")
-            }
-        case '1':
-            for _, str := range strs {
-                newstrs = append(newstrs, str + "1")
-            }
-        case '0':
-            for _, str := range strs {
-                newstrs = append(newstrs, str + string(addressstring[i]))
-            }
-        }
-        strs = make([]string, len(newstrs))
-        copy(strs, newstrs)
-        newstrs = nil
-    }
-    out := make([]int64, len(strs))
-    for i, str := range strs {
-        out[i] = mustParseInt(str)
-    }
-    return out
+func part2(maskX, maskXs, mask1, address int64) int64 {
+    return ((address | mask1) | maskX) ^ maskXs
 }
 
 func main() {
-    var mask string
+    var maskX int64
+    var mask1 int64
+    var maskXs []int64
     mem1 := map[int64]int64{}
     mem2 := map[int64]int64{}
     readfunc := func(line string) {
         if strings.HasPrefix(line, "mask") {
-            fmt.Sscanf(line, "mask = %s", &mask)
+            var maskstr string
+            fmt.Sscanf(line, "mask = %s", &maskstr)
+            maskX = mustParseInt(strings.Replace(strings.Replace(maskstr, "1", "0", -1), "X", "1", -1))
+            mask1 = mustParseInt(strings.Replace(maskstr, "X", "0", -1))
+            maskXs = nil
+            var xs []int64
+            for i, s := range maskstr {
+                if s != 'X' {
+                    continue
+                }
+                exp := float64(len(maskstr)-1-i)
+                xs = append(xs, int64(math.Pow(2, exp)))
+            }
+            newxs := []int64{0, xs[0]}
+            var newnew []int64
+            for _, x := range xs[1:] {
+                for _, v := range newxs {
+                    newnew = append(newnew, v)
+                    newnew = append(newnew, v + x)
+                }
+                newxs = make([]int64, len(newnew))
+                copy(newxs, newnew)
+                newnew = nil
+            }
+            maskXs = newxs
             return
         }
         var address, value int64
         fmt.Sscanf(line, "mem[%d] = %d", &address, &value)
-        v := part1(mask, value)
+        v := part1(maskX, mask1, value)
         mem1[address] = v
-        for _, adr := range part2(mask, address) {
+
+        for _, m := range maskXs {
+            adr := part2(maskX, m, mask1, address)
             mem2[adr] = value
         }
     }
