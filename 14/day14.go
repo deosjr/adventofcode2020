@@ -32,6 +32,29 @@ func part2(maskX, maskXs, mask1, address int64) int64 {
     return ((address | mask1) | maskX) ^ maskXs
 }
 
+func extractPartialMasks(maskstr string) []int64 {
+    var xindices []int
+    for i, s := range maskstr {
+        if s != 'X' {
+            continue
+        }
+        xindices = append(xindices, len(maskstr)-1-i)
+    }
+    xs := []int64{0}
+    var newxs []int64
+    for _, xi := range xindices {
+        x := int64(math.Pow(2, float64(xi)))
+        for _, v := range xs {
+            newxs = append(newxs, v)
+            newxs = append(newxs, v + x)
+        }
+        xs = make([]int64, len(newxs))
+        copy(xs, newxs)
+        newxs = nil
+    }
+    return xs
+}
+
 func main() {
     var maskX int64
     var mask1 int64
@@ -44,27 +67,7 @@ func main() {
             fmt.Sscanf(line, "mask = %s", &maskstr)
             maskX = mustParseInt(strings.Replace(strings.Replace(maskstr, "1", "0", -1), "X", "1", -1))
             mask1 = mustParseInt(strings.Replace(maskstr, "X", "0", -1))
-            maskXs = nil
-            var xs []int64
-            for i, s := range maskstr {
-                if s != 'X' {
-                    continue
-                }
-                exp := float64(len(maskstr)-1-i)
-                xs = append(xs, int64(math.Pow(2, exp)))
-            }
-            newxs := []int64{0, xs[0]}
-            var newnew []int64
-            for _, x := range xs[1:] {
-                for _, v := range newxs {
-                    newnew = append(newnew, v)
-                    newnew = append(newnew, v + x)
-                }
-                newxs = make([]int64, len(newnew))
-                copy(newxs, newnew)
-                newnew = nil
-            }
-            maskXs = newxs
+            maskXs = extractPartialMasks(maskstr)
             return
         }
         var address, value int64
