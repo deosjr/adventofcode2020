@@ -84,3 +84,5 @@ pl14:
 
 go15:
 	@go run 15/day15.go
+pl15:
+	@swipl -q -l 15/day15.pl -t run

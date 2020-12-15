@@ -6,13 +6,14 @@ import (
     "github.com/deosjr/adventofcode2020/lib"
 )
 
-func say(m map[int64]int, n int64, turn int) (newn int64) {
-    if prevturn, ok := m[n]; ok {
-        newn = int64(turn - prevturn)
-    } else {
+func say(array []int, n int64, turn int) (newn int64) {
+    prevturn := array[int(n)]
+    if prevturn == 0 {
         newn = 0
+    } else {
+        newn = int64(turn - prevturn)
     }
-    m[n] = turn
+    array[int(n)] = turn
     return newn
 }
 
@@ -22,15 +23,17 @@ func main() {
 
     turn := 1
     var newn int64
-    m := map[int64]int{}
+    // using an array is faster than a map here due to distribution of keys
+    // some people even use a map for the high keys, cause those are sparse
+    array := make([]int, 30_000_000)
     for _, s := range split {
         n := lib.MustParseInt(s)
-        newn = say(m, n, turn)
+        newn = say(array, n, turn)
         turn++
     }
 
     for i:=turn; i<2020; i++ {
-        newn = say(m, newn, turn)
+        newn = say(array, newn, turn)
         turn++
     }
 
@@ -38,8 +41,8 @@ func main() {
     lib.WritePart1("%d", p1)
 
 
-    for i:=turn; i<30000000; i++ {
-        newn = say(m, newn, turn)
+    for i:=turn; i<30_000_000; i++ {
+        newn = say(array, newn, turn)
         turn++
     }
 
