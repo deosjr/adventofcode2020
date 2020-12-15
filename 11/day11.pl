@@ -1,63 +1,62 @@
 :- ['../lib/io.pl'].
 
-:- dynamic([grid/2, stable/2, nns/2]).
-
-stabilize(N, Direct) :-
-    findall(C, (grid(C,empty), assert_neighbours(Direct, C)), _),
+stabilize(Grid, N, Direct, Stable) :-
+    trie_new(Neighbours),
+    findall(C, (trie_gen_compiled(Grid,C,empty), cache_neighbours(Grid, Neighbours, Direct, C)), _),
 
     findall(C, (
-        grid(C,empty),
-        in_view(Direct, C, E, _),
+        trie_gen_compiled(Grid,C,empty),
+        in_view(Grid, Stable, Neighbours, Direct, C, E, _),
         E #> 8-N,
-        assertz(stable(C,occupied))
+        trie_insert(Stable, C, occupied)
     ), FirstKnownOccupied),
 
-    findall(C, (grid(C, floor), assertz(stable(C,floor))), _),
+    findall(C, (trie_gen_compiled(Grid, C, floor), trie_insert(Stable,C,floor)), _),
 
-    new_to_check(FirstKnownOccupied, ToCheck),
-    stabilize_rec(N, Direct, ToCheck).
+    new_to_check(Stable, Neighbours, FirstKnownOccupied, ToCheck),
+    stabilize_rec(Grid, Stable, Neighbours, N, Direct, ToCheck).
 
-new_to_check(NewlyAdded, ToCheck) :-
-    maplist(nns, NewlyAdded, ToCheckNested),
+new_to_check(Stable, NNs, NewlyAdded, ToCheck) :-
+    maplist(trie_lookup(NNs), NewlyAdded, ToCheckNested),
     flatten(ToCheckNested, ToCheckWithDoubles),
     list_to_set(ToCheckWithDoubles, NewToCheck),
-    exclude([C]>>(stable(C, _)), NewToCheck, ToCheck).
+    exclude([C]>>(trie_lookup(Stable, C, _)), NewToCheck, ToCheck).
     
-stabilize_rec(N, Direct, ToCheck) :-
-    maplist([C, Out]>>(in_view(Direct, C, Empty, Occupied), Out=[C,Empty,Occupied]), ToCheck, List),
+stabilize_rec(Grid, Stable, Neighbours, N, Direct, ToCheck) :-
+    maplist([C, Out]>>(in_view(Grid, Stable, Neighbours, Direct, C, Empty, Occupied), Out=[C,Empty,Occupied]), ToCheck, List),
     include({N}/[[C,E,O]]>>(
-        (O #> 0, assertz(stable(C,empty)))
-        ; ( O #= 0, E #> 8-N, assertz(stable(C,occupied))) 
+        (O #> 0, trie_insert(Stable,C,empty))
+        ; ( O #= 0, E #> 8-N, trie_insert(Stable,C,occupied))
     ), List, NewlyAddedPairs),
     maplist([[C,_,_],X]>>(X=C), NewlyAddedPairs, NewlyAdded),
 
-    new_to_check(NewlyAdded, NewToCheck),
+    new_to_check(Stable, Neighbours, NewlyAdded, NewToCheck),
     (
         NewToCheck = []
     ->
         true
     ;
-        stabilize_rec(N, Direct, NewToCheck)
+        stabilize_rec(Grid, Stable, Neighbours, N, Direct, NewToCheck)
     ).
 
 neighbours([c(-1,-1),c(-1,1),c(-1,0),c(1,-1),c(1,1),c(1,0),c(0,-1),c(0,1)]).
 
-assert_neighbours(Direct, Coord) :-
+cache_neighbours(Grid, NNs, Direct, Coord) :-
     neighbours(DXs),
     foldl([A,B,C]>>(
         (
-            get_neighbours_rec(Direct, Coord, A, Ns)
+            get_neighbours_rec(Grid, Direct, Coord, A, Ns)
         ->
             append(Ns, B, C)
         ;
             C = B
         )
     ), DXs, [], Neighbours),
-    assertz(nns(Coord, Neighbours)).
+    trie_insert(NNs, Coord, Neighbours).
 
-get_neighbours_rec(Direct, X-Y, c(DX,DY), Neighbours) :-
+get_neighbours_rec(Grid, Direct, X-Y, c(DX,DY), Neighbours) :-
     NX #= X + DX, NY #= Y + DY,
-    grid(NX-NY, Value),
+    trie_lookup(Grid, NX-NY, Value),
     (
         Value = floor
     ->
@@ -66,7 +65,7 @@ get_neighbours_rec(Direct, X-Y, c(DX,DY), Neighbours) :-
         ->
             Neighbours = [NX-NY]
         ;
-            get_neighbours_rec(false, NX-NY, c(DX,DY), Neighbours)
+            get_neighbours_rec(Grid, false, NX-NY, c(DX,DY), Neighbours)
         )
     ;
         % because it should never be occ in old grid
@@ -74,19 +73,19 @@ get_neighbours_rec(Direct, X-Y, c(DX,DY), Neighbours) :-
         Neighbours = [NX-NY]
     ).
 
-in_view(Direct, Coord, PermanentEmpty, PermanentOccupied) :-
-    nns(Coord, Neighbours),
+in_view(Grid, Stable, NNs, Direct, Coord, PermanentEmpty, PermanentOccupied) :-
+    trie_lookup(NNs, Coord, Neighbours),
     length(Neighbours, N),
     StartPermEmpty #= 8 - N,
     foldl([A,B,C]>>(
-        in_view_rec(Direct, A, Empty, Occ),
+        in_view_rec(Grid, Stable, Direct, A, Empty, Occ),
         B = EmptyAcc-OccAcc,
         NEmpty #= Empty + EmptyAcc, NOcc #= Occ + OccAcc,
         C = NEmpty-NOcc
     ), Neighbours, StartPermEmpty-0, PermanentEmpty-PermanentOccupied).
 
-in_view_rec(Direct, Coord, Empty, Occupied) :-
-    grid(Coord, Value),
+in_view_rec(Grid, Stable, Direct, Coord, Empty, Occupied) :-
+    trie_lookup(Grid, Coord, Value),
     (
         Value = floor
     ->
@@ -101,7 +100,7 @@ in_view_rec(Direct, Coord, Empty, Occupied) :-
         % because it should never be occ in old grid
         Value = empty,
         (
-            stable(Coord, NewValue)
+            trie_lookup(Stable, Coord, NewValue)
         ->
             (
                 NewValue = empty
@@ -117,37 +116,38 @@ in_view_rec(Direct, Coord, Empty, Occupied) :-
         )
     ).
 
-sumOccupied(Ans) :-
-    findall(C, stable(C, occupied), List),
+sumOccupied(Trie, Ans) :-
+    findall(C, trie_gen_compiled(Trie, C, occupied), List),
     length(List, Ans).
 
-part1(Ans) :-
-    stabilize(4, true),
-    sumOccupied(Ans).
+part1(Grid, Ans) :-
+    trie_new(Stable),
+    stabilize(Grid, 4, true, Stable),
+    sumOccupied(Stable, Ans).
 
-part2(Ans) :-
-    retractall(stable(_,_)),
-    retractall(nns(_,_)),
-    stabilize(5, false),
-    sumOccupied(Ans).
+part2(Grid, Ans) :-
+    trie_new(Stable),
+    stabilize(Grid, 5, false, Stable),
+    sumOccupied(Stable, Ans).
 
-parse(Y) --> parse(0, Y, Line), blanks, {NY #= Y+1},
-    parse(NY), {assert_line(Line)}.
+parse(Trie, Y) --> parse(0, Y, Line), blanks, {NY #= Y+1},
+    parse(Trie, NY), {add_line_to_trie(Trie, Line)}.
 
-parse(Y) --> parse(0, Y, Line), blanks, eos, {assert_line(Line)}.
+parse(Trie, Y) --> parse(0, Y, Line), blanks, eos, {add_line_to_trie(Trie, Line)}.
 
 parse(_, _, []) --> "\n".
 parse(X, Y, [grid(X-Y,floor)|T]) --> ".", {NX #= X+1}, parse(NX, Y, T).
 parse(X, Y, [grid(X-Y,empty)|T]) --> "L", {NX #= X+1}, parse(NX, Y, T).
 
-assert_line([]).
-assert_line([H|T]) :-
-    assertz(H),
-    assert_line(T).
+add_line_to_trie(_, []).
+add_line_to_trie(Trie, [grid(K, V)|T]) :-
+    trie_insert(Trie, K, V),
+    add_line_to_trie(Trie, T).
 
 run :-
-    input_stream(11, parse(0)),
-    part1(Ans1),
+    trie_new(Trie),
+    input_stream(11, parse(Trie, 0)),
+    part1(Trie, Ans1),
     write_part1(Ans1),
-    part2(Ans2),
+    part2(Trie, Ans2),
     write_part2(Ans2).

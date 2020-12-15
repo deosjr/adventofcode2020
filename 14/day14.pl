@@ -1,46 +1,43 @@
 :- ['../lib/io.pl'].
 
-:- dynamic mem/2.
-
-sum_values(Sum) :-
-    findall(X, mem(_, X), List),
+sum_values(Trie, Sum) :-
+    findall(X, trie_gen_compiled(Trie, _, X), List),
     sum(List, #=, Sum).
 
 part1(Instructions, Ans) :-
-    loop(Instructions, _Mask, p1),
-    sum_values(Ans).
+    trie_new(Trie),
+    loop(Instructions, Trie, _Mask, p1),
+    sum_values(Trie, Ans).
 
 part2(Instructions, Ans) :-
-    retractall(mem(_,_)),
-    loop(Instructions, _Mask, p2),
-    sum_values(Ans).
+    trie_new(Trie),
+    loop(Instructions, Trie, _Mask, p2),
+    sum_values(Trie, Ans).
 
-loop([], _, _).
+loop([], _, _, _).
 
-loop([Mask|T], _, Pred) :-
+loop([Mask|T], Trie, _, Pred) :-
     Mask = mask(_,_,_),
-    loop(T, Mask, Pred).
+    loop(T, Trie, Mask, Pred).
 
-loop([set(Adr, Value)|T], Mask, Pred) :-
-    call(Pred, Adr, Value, Mask),
-    loop(T, Mask, Pred).
+loop([set(Adr, Value)|T], Trie, Mask, Pred) :-
+    call(Pred, Trie, Adr, Value, Mask),
+    loop(T, Trie, Mask, Pred).
 
-p1(Adr, Value, Mask) :-
+p1(Trie, Adr, Value, Mask) :-
     Mask = mask(MX, M1, _),
     N #= (Value /\ MX) \/ M1,
-    assert_mem(Adr, N).
+    trie_update(Trie, Adr, N).
 
-p2(_, _, mask(_, _, [])).
-p2(Adr, Value, Mask) :-
+p2(_, _, _, mask(_, _, [])).
+p2(Trie, Adr, Value, Mask) :-
     Mask = mask(MX, M1, [X|MXs]),
     N #= (( Adr \/ M1 ) \/ MX ) xor X,
-    assert_mem(N, Value),
-    p2(Adr, Value, mask(MX, M1, MXs)).
+    trie_update(Trie, N, Value),
+    p2(Trie, Adr, Value, mask(MX, M1, MXs)).
 
 % Dictionaries did not perform well enough. Too many singular inserts.
-assert_mem(Adr, Value) :-
-    retractall(mem(Adr, _)),
-    assertz(mem(Adr, Value)).
+% assert/retract did roughly 1sec. Tries are equally fast here (?!)
 
 parse([]) --> blanks, eos.
 parse([mask(PMX, PM1, PMXs)|T]) -->
