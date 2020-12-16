@@ -86,3 +86,8 @@ go15:
 	@go run 15/day15.go
 pl15:
 	@swipl -q -l 15/day15.pl -t run
+
+go16:
+	@go run 16/day16.go
+pl16:
+	@swipl -q -l 16/day16.pl -t run
