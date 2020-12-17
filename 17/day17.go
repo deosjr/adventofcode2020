@@ -16,7 +16,12 @@ type coord4d struct {
     x, y, z, w int
 }
 
+var cache3d = map[coord3d][]Coord{}
+
 func (c coord3d) Neighbours() []Coord {
+    if v, ok := cache3d[c]; ok {
+        return v
+    }
     n := []Coord{}
     for x:=c.x-1;x<=c.x+1;x++ {
         for y:=c.y-1;y<=c.y+1;y++ {
@@ -28,10 +33,16 @@ func (c coord3d) Neighbours() []Coord {
             }
         }
     }
+    cache3d[c] = n
     return n
 }
 
+var cache4d = map[coord4d][]Coord{}
+
 func (c coord4d) Neighbours() []Coord {
+    if v, ok := cache4d[c]; ok {
+        return v
+    }
     n := []Coord{}
     for x:=c.x-1;x<=c.x+1;x++ {
         for y:=c.y-1;y<=c.y+1;y++ {
@@ -45,6 +56,7 @@ func (c coord4d) Neighbours() []Coord {
             }
         }
     }
+    cache4d[c] = n
     return n
 }
 

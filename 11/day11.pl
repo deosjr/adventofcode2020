@@ -2,7 +2,8 @@
 
 stabilize(Grid, N, Direct, Stable) :-
     trie_new(Neighbours),
-    findall(C, (trie_gen_compiled(Grid,C,empty), cache_neighbours(Grid, Neighbours, Direct, C)), _),
+    findall(C, (trie_gen_compiled(Grid,C,empty)), Chairs),
+    maplist(cache_neighbours(Grid, Neighbours, Direct), Chairs),
 
     findall(C, (
         trie_gen_compiled(Grid,C,empty),
@@ -43,46 +44,40 @@ neighbours([c(-1,-1),c(-1,1),c(-1,0),c(1,-1),c(1,1),c(1,0),c(0,-1),c(0,1)]).
 
 cache_neighbours(Grid, NNs, Direct, Coord) :-
     neighbours(DXs),
-    foldl([A,B,C]>>(
-        (
-            get_neighbours_rec(Grid, Direct, Coord, A, Ns)
-        ->
-            append(Ns, B, C)
-        ;
-            C = B
-        )
-    ), DXs, [], Neighbours),
+    maplist(get_neighbours_rec(Grid, Direct, Coord), DXs, Ns),
+    flatten(Ns, Neighbours),
     trie_insert(NNs, Coord, Neighbours).
 
 get_neighbours_rec(Grid, Direct, X-Y, c(DX,DY), Neighbours) :-
     NX #= X + DX, NY #= Y + DY,
-    trie_lookup(Grid, NX-NY, Value),
     (
-        Value = floor
-    ->
+        trie_lookup(Grid, NX-NY, Value),
         (
-            Direct
+            Value = floor
         ->
-            Neighbours = [NX-NY]
+            (
+                Direct
+            ->
+                Neighbours = [NX-NY]
+            ;
+                get_neighbours_rec(Grid, false, NX-NY, c(DX,DY), Neighbours)
+            )
         ;
-            get_neighbours_rec(Grid, false, NX-NY, c(DX,DY), Neighbours)
+            % because it should never be occ in old grid
+            Value = empty,
+            Neighbours = [NX-NY]
         )
     ;
-        % because it should never be occ in old grid
-        Value = empty,
-        Neighbours = [NX-NY]
+        Neighbours = []
     ).
 
 in_view(Grid, Stable, NNs, Direct, Coord, PermanentEmpty, PermanentOccupied) :-
     trie_lookup(NNs, Coord, Neighbours),
+    maplist(in_view_rec(Grid, Stable, Direct), Neighbours, Empty, Occupied),
     length(Neighbours, N),
-    StartPermEmpty #= 8 - N,
-    foldl([A,B,C]>>(
-        in_view_rec(Grid, Stable, Direct, A, Empty, Occ),
-        B = EmptyAcc-OccAcc,
-        NEmpty #= Empty + EmptyAcc, NOcc #= Occ + OccAcc,
-        C = NEmpty-NOcc
-    ), Neighbours, StartPermEmpty-0, PermanentEmpty-PermanentOccupied).
+    sum(Empty, #=, EmptySum),
+    PermanentEmpty #= 8 - N + EmptySum,
+    sum(Occupied, #=, PermanentOccupied).
 
 in_view_rec(Grid, Stable, Direct, Coord, Empty, Occupied) :-
     trie_lookup(Grid, Coord, Value),
