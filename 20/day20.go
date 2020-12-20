@@ -96,22 +96,38 @@ func onlyContains(ids []int64, id int64) bool {
 }
 
 func (t *tile) rotate() {
-    t.hashes = []uint16{t.hashes[3], t.hashes[0], t.hashes[1], t.hashes[2]}
+    t.hashes = []uint16{t.west(), t.north(), t.east(), t.south()}
     t.rotated = (t.rotated + 1) % 4
 }
 
 func (t *tile) flip() {
     t.hashes = []uint16{
-        flipHash(t.hashes[0]),
-        flipHash(t.hashes[3]),
-        flipHash(t.hashes[2]),
-        flipHash(t.hashes[1]),
+        flipHash(t.north()),
+        flipHash(t.west()),
+        flipHash(t.south()),
+        flipHash(t.east()),
     }
     t.flipped = !t.flipped
 }
 
 func flipHash(b uint16) uint16 {
     return bits.Reverse16(b) >> 6
+}
+
+func (t *tile) north() uint16 {
+    return t.hashes[0]
+}
+
+func (t *tile) east() uint16 {
+    return t.hashes[1]
+}
+
+func (t *tile) south() uint16 {
+    return t.hashes[2]
+}
+
+func (t *tile) west() uint16 {
+    return t.hashes[3]
 }
 
 // returns NESW order hash of borders
@@ -150,7 +166,7 @@ func borderToBinary(str string) uint16 {
 // first one we place so flips dont matter (rest will have to adjust)
 func placeULHC(m map[uint16][]int64, t *tile) {
     for i:=0; i< 4; i++ {
-        if !t.hit(m, t.hashes[0]) && !t.hit(m, t.hashes[3]) {
+        if !t.hit(m, t.north()) && !t.hit(m, t.west()) {
             t.placed = true
             return
         }
@@ -178,26 +194,42 @@ func (t *tile) placeUntil(condition func(*tile)bool) {
 
 func placeTopEdge(t *tile, westvalue uint16) {
     t.placeUntil(func(t *tile) bool {
-        return t.hashes[3] == flipHash(westvalue)
+        return t.west() == flipHash(westvalue)
     })
 }
 
 func placeLeftEdge(t *tile, southvalue uint16) {
     t.placeUntil(func(t *tile) bool {
-        return t.hashes[0] == flipHash(southvalue)
+        return t.north() == flipHash(southvalue)
     })
 }
 
 func placeURHC(m map[uint16][]int64, t *tile, westvalue uint16) {
     t.placeUntil(func(t *tile) bool {
-        return !t.hit(m, t.hashes[0]) && !t.hit(m, t.hashes[1]) && t.hashes[3] == flipHash(westvalue)
+        return !t.hit(m, t.north()) && !t.hit(m, t.east()) && t.west() == flipHash(westvalue)
     })
 }
 
 func placeMiddle(t *tile, southvalue, eastvalue uint16) {
     t.placeUntil(func(t *tile) bool {
-        return t.hashes[0] == flipHash(southvalue) && t.hashes[3] == flipHash(eastvalue)
+        return t.north() == flipHash(southvalue) && t.west() == flipHash(eastvalue)
     })
+}
+
+func place(co coord, m map[uint16][]int64, last uint16, rest map[int64]*tile, grid map[coord]*tile, f func(*tile, uint16)) {
+    matching := m[last]
+    for _, id := range matching {
+        t, ok := rest[id]
+        if !ok {
+            continue
+        }
+        if t.placed {
+            continue
+        }
+        f(t, last)
+        grid[co] = t
+        return
+    }
 }
 
 func main() {
@@ -234,8 +266,11 @@ func main() {
     }
 
     var p1 int64 = 1
-    for cid, _ := range corners {
+    var ulhc *tile
+    for cid, c := range corners {
         p1 *= cid
+        // we just need a random starting corner
+        ulhc = c
     }
     lib.WritePart1("%d", p1)
 
@@ -243,37 +278,20 @@ func main() {
     //fmt.Println(len(edges))
     size := 12
 
-    // try all corners; easier than rotating image at then end :P
-    for _, ulhc := range corners {
-    for _, tile := range tiles {
-        tile.placed = false
-    }
-
     // place ulhc
     grid := map[coord]*tile{}
     grid[coord{0,0}] = ulhc
     placeULHC(m, ulhc)
 
+
     // place top edge
     for x:=1; x<size-1; x++ {
-        lastEast := grid[coord{x-1, 0}].hashes[1]
-        matching := m[lastEast]
-        for _, id := range matching {
-            t, ok := rest[id]
-            if !ok {
-                continue
-            }
-            if t.placed {
-                continue
-            }
-            placeTopEdge(t, lastEast)
-            grid[coord{x,0}] = t
-            break
-        }
+        lastEast := grid[coord{x-1, 0}].east()
+        place(coord{x,0}, m, lastEast, rest, grid, placeTopEdge)
     }
 
     // place urhc
-    lastEast := grid[coord{size-2,0}].hashes[1]
+    lastEast := grid[coord{size-2,0}].east()
     matching := m[lastEast]
     for _, id := range matching {
         t, ok := corners[id]
@@ -289,24 +307,12 @@ func main() {
 
     for y:=1; y<size-1; y++ {
         // place left edge
-        lastSouth := grid[coord{0,y-1}].hashes[2]
-        matching := m[lastSouth]
-        for _, id := range matching {
-            t, ok := rest[id]
-            if !ok {
-                continue
-            }
-            if t.placed {
-                continue
-            }
-            placeLeftEdge(t, lastSouth)
-            grid[coord{0,y}] = t
-            break
-        }
+        lastSouth := grid[coord{0,y-1}].south()
+        place(coord{0,y}, m, lastSouth, rest, grid, placeLeftEdge)
         // place middle pieces
         for x:=1; x<size-1; x++ {
-            lastSouth := grid[coord{x,y-1}].hashes[2]
-            lastEast := grid[coord{x-1,y}].hashes[1]
+            lastSouth := grid[coord{x,y-1}].south()
+            lastEast := grid[coord{x-1,y}].east()
             matchSouth := m[lastSouth]
             matchEast := m[lastEast]
             Loop:
@@ -329,68 +335,22 @@ func main() {
             }
         }
         // place right edge
-        lastSouth = grid[coord{size-1,y-1}].hashes[2]
-        matching = m[lastSouth]
-        for _, id := range matching {
-            t, ok := rest[id]
-            if !ok {
-                continue
-            }
-            if t.placed {
-                continue
-            }
-            placeLeftEdge(t, lastSouth)
-            grid[coord{size-1,y}] = t
-            break
-        }
+        lastSouth = grid[coord{size-1,y-1}].south()
+        place(coord{size-1,y}, m, lastSouth, rest, grid, placeLeftEdge)
     }
 
     // place llhc
-    lastSouth := grid[coord{0,size-2}].hashes[2]
-    matching = m[lastSouth]
-    for _, id := range matching {
-        t, ok := corners[id]
-        if !ok {
-            continue
-        }
-        if t.placed {
-            continue
-        }
-        placeLeftEdge(t, lastSouth)
-        grid[coord{0,size-1}] = t
-    }
+    lastSouth := grid[coord{0,size-2}].south()
+    place(coord{0,size-1}, m, lastSouth, corners, grid, placeLeftEdge)
     // place bottom edge
     for x:=1; x<size-1; x++ {
-        lastSouth := grid[coord{x, size-2}].hashes[2]
-        matching := m[lastSouth]
-        for _, id := range matching {
-            t, ok := rest[id]
-            if !ok {
-                continue
-            }
-            if t.placed {
-                continue
-            }
-            placeLeftEdge(t, lastSouth)
-            grid[coord{x,size-1}] = t
-            break
-        }
+        lastSouth := grid[coord{x, size-2}].south()
+        place(coord{x,size-1}, m, lastSouth, rest, grid, placeLeftEdge)
     }
 
     // place lrhc
-    lastSouth = grid[coord{size-1,size-2}].hashes[2]
-    matching = m[lastSouth]
-    for _, id := range matching {
-        t, ok := corners[id]
-        if !ok {
-            continue
-        }
-        if t.placed {
-            continue
-        }
-        placeLeftEdge(t, lastSouth)
-        grid[coord{size-1,size-1}] = t
-    }
+    lastSouth = grid[coord{size-1,size-2}].south()
+    place(coord{size-1,size-1}, m, lastSouth, corners, grid, placeLeftEdge)
 
     actualImage := make([]string, size * 8)
     for y:=0; y<size; y++ {
@@ -404,10 +364,14 @@ func main() {
         }
     }
 
-    n, smap := findSeamonsters(actualImage)
-    if n > 0 {
-        p2 := countRoughness(actualImage, smap)
-        lib.WritePart2("%d", p2)
+    for i:=0; i<4; i++ {
+        n, smap := findSeamonsters(actualImage)
+        if n > 0 {
+            p2 := countRoughness(actualImage, smap)
+            lib.WritePart2("%d", p2)
+            return
+        }
+        actualImage = rotateImage(actualImage)
     }
 
     imgflipped := make([]string, len(actualImage))
@@ -419,12 +383,14 @@ func main() {
         imgflipped[i] = str
     }
 
-    n, smap = findSeamonsters(imgflipped)
-    if n > 0 {
-        p2 := countRoughness(imgflipped, smap)
-        lib.WritePart2("%d", p2)
+    for i:=0; i<4; i++ {
+        n, smap := findSeamonsters(imgflipped)
+        if n > 0 {
+            p2 := countRoughness(imgflipped, smap)
+            lib.WritePart2("%d", p2)
+            return
+        }
     }
-}
 
 }
 
@@ -480,4 +446,19 @@ func countRoughness(img []string, smap map[coord]struct{}) int {
         }
     }
     return sum
+}
+
+// assumes image is square
+func rotateImage(in []string) []string {
+    size := len(in)
+    out := make([]string, size)
+    for i:=0; i<size; i++ {
+        out[i] = string(in[size-1][i])
+    }
+    for i:=0; i<len(in); i++ {
+        for j:=size-2; j>=0; j-- {
+            out[i] = out[i] + string(in[j][i])
+        }
+    }
+    return out
 }
