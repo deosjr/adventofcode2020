@@ -2,25 +2,26 @@
 
 :- dynamic([tile/2, border/2]).
 
-part1(Ans) :-
-    findall(X, (
-        tile(X, _),
-        findall(Y, (
-            border(X, Border),
-            (
-                border(Y, Border)
-            ;
-                reverse(Border, Rev),
-                border(Y, Rev)
-            ),
-            X \= Y
-        ), Borders),
-        writeln(Borders),
-        length(Borders, 2)
-    ), List),
-    foldl([X,Y,Z]>>(Z #= Y*X), List, 1, Ans).
+part1(Tiles, Ans) :-
+    corners(Tiles, Corners),
+    foldl([T,Y,Z]>>(T = tile(X,_), Z#=X*Y), Corners, 1, Ans).
 
 part2(Ans) :- true.
+
+corners(Tiles, Corners) :-
+    include([tile(Tile,_)]>>(
+        findall(X, (
+            border(Tile, Border),
+            (
+                border(X, Border)
+            ;
+                reverse(Border, Rev),
+                border(X, Rev)
+            ),
+            X \= Tile
+        ), Borders),
+        length(Borders, 2)
+    ), Tiles, Corners).
 
 parse([]) --> blanks, eos.
 parse([H|T]) --> parse_tile(H), parse(T).
@@ -33,9 +34,7 @@ parse_id(ID) --> "Tile ", integer(ID), ":\n".
 parse_lines([]) --> "\n".
 parse_lines([H|T]) --> string_without("\n", H), "\n", parse_lines(T).
 
-assert_tile(T) :-
-    assertz(T),
-    T = tile(ID, Lines),
+assert_tile(tile(ID, Lines)) :-
     Lines = [
     [A0,B0,C0,D0,E0,F0,G0,H0,I0,J0],
     [A1, _, _, _, _, _, _, _, _,J1],
@@ -58,7 +57,7 @@ run :-
     forall(member(T, Tiles), (
         assert_tile(T)
     )),
-    part1(Ans1),
+    part1(Tiles, Ans1),
     write_part1(Ans1),
     part2(Ans2),
     write_part2(Ans2).
