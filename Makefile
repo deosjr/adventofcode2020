@@ -116,3 +116,8 @@ go21:
 	@go run 21/day21.go
 pl21:
 	@swipl -q -l 21/day21.pl -t run
+
+go22:
+	@go run 22/day22.go
+pl22:
+	@swipl -q -l 22/day22.pl -t run
