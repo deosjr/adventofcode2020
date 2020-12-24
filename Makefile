@@ -126,3 +126,8 @@ go23:
 	@go run 23/day23.go
 pl23:
 	@swipl -q -l 23/day23.pl -t run
+
+go24:
+	@go run 24/day24.go
+pl24:
+	@swipl -q -l 24/day24.pl -t run
